@@ -79,6 +79,42 @@ const comments = [
 ];
 
 function App() {
+  // Manejadores de eventos para los botones
+  const handleLogin = () => {
+    alert('Redirigiendo a login...');
+    // window.location.href = '/login';
+  };
+
+  const handleCreateGame = () => {
+    alert('Abriendo formulario para crear juego...');
+    // window.location.href = '/create-game';
+  };
+
+  const handleStartNow = () => {
+    alert('¡Bienvenido! Iniciando...');
+    // window.location.href = '/start';
+  };
+
+  const handleViewExamples = () => {
+    alert('Mostrando ejemplos de juegos...');
+    // window.location.href = '/examples';
+  };
+
+  const handleViewMore = (category) => {
+    alert(`Ver más juegos de ${category}`);
+    // window.location.href = `/games/${category}`;
+  };
+
+  const handleExploreCommunity = () => {
+    alert('Explorando la comunidad...');
+    // window.location.href = '/community';
+  };
+
+  const handleUploadGame = () => {
+    alert('Abriendo formulario para subir juego...');
+    // window.location.href = '/upload';
+  };
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -95,8 +131,8 @@ function App() {
         </nav>
 
         <div className="nav-actions">
-          <button className="ghost-btn">Entrar</button>
-          <button className="primary-btn">Crear juego</button>
+          <button className="ghost-btn" onClick={handleLogin}>Entrar</button>
+          <button className="primary-btn" onClick={handleCreateGame}>Crear juego</button>
         </div>
       </header>
 
@@ -111,8 +147,8 @@ function App() {
             </p>
 
             <div className="cta-row">
-              <button className="primary-btn large">Empezar ahora</button>
-              <button className="ghost-btn large">Ver ejemplos</button>
+              <button className="primary-btn large" onClick={handleStartNow}>Empezar ahora</button>
+              <button className="ghost-btn large" onClick={handleViewExamples}>Ver ejemplos</button>
             </div>
 
             <div className="mini-pills">
@@ -166,7 +202,7 @@ function App() {
                 <span className="category-badge">{cat.badge}</span>
                 <h3>{cat.title}</h3>
                 <p>{cat.subtitle}</p>
-                <button>Ver más</button>
+                <button onClick={() => handleViewMore(cat.title)}>Ver más</button>
               </article>
             ))}
           </div>
@@ -178,7 +214,7 @@ function App() {
               <span className="eyebrow">Proyectos destacados</span>
               <h2>Juegos que están rompiendo el mercado</h2>
             </div>
-            <button className="ghost-btn">Explorar comunidad</button>
+            <button className="ghost-btn" onClick={handleExploreCommunity}>Explorar comunidad</button>
           </div>
 
           <div className="featured-grid">
@@ -262,7 +298,7 @@ function App() {
                     <small>{item.tag}</small>
                   </div>
                 </div>
-                <p>“{item.text}”</p>
+                <p>"{item.text}"</p>
               </article>
             ))}
           </div>
@@ -273,7 +309,7 @@ function App() {
             <span className="eyebrow">Tu creatividad merece ser vista</span>
             <h2>Crear, publicar y crecer nunca fue tan fácil.</h2>
           </div>
-          <button className="primary-btn large">Subir mi juego</button>
+          <button className="primary-btn large" onClick={handleUploadGame}>Subir mi juego</button>
         </section>
       </main>
 
