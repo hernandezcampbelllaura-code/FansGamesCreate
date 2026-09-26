@@ -18,6 +18,13 @@ const defaultGames = [
       'Un juego de plataformas con combates rápidos, retos de precisión y un mundo futurista lleno de secretos.',
     tags: ['acción', 'pixel-art', 'exploración'],
     players: '4.2K',
+    likes: 124,
+    likedBy: [],
+    imageUrl: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80',
+    comments: [
+      { id: 1, user: 'KiraFlux', text: 'Me encantó el estilo visual y la sensación de juego.' },
+      { id: 2, user: 'Milo', text: 'La mecánica se ve super fluida.' },
+    ],
   },
   {
     id: 2,
@@ -31,6 +38,12 @@ const defaultGames = [
       'Una aventura emocional con cielos abiertos, criaturas legendarias y decisiones que cambian el mundo.',
     tags: ['aventura', 'mundo abierto', 'historia'],
     players: '3.5K',
+    likes: 89,
+    likedBy: [],
+    imageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=1200&q=80',
+    comments: [
+      { id: 1, user: 'ZeroByte', text: 'El mundo abierto tiene muy buena pinta.' },
+    ],
   },
   {
     id: 3,
@@ -44,6 +57,12 @@ const defaultGames = [
       'Sobrevive en un futuro postapocalíptico con recursos limitados, peligro constante y decisiones críticas.',
     tags: ['supervivencia', 'simulación', 'sci-fi'],
     players: '6.1K',
+    likes: 205,
+    likedBy: [],
+    imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+    comments: [
+      { id: 1, user: 'NovaForge', text: 'Lo que más me gusta es la tensión constante.' },
+    ],
   },
 ];
 
@@ -55,24 +74,9 @@ const stats = [
 ];
 
 const categories = [
-  {
-    title: 'Juegos 2D',
-    subtitle: 'Plataformas, RPG, puzzles y acción retro.',
-    accent: 'violet',
-    badge: 'pixel art',
-  },
-  {
-    title: 'Juegos 3D',
-    subtitle: 'Mundos inmersivos, shooters, simuladores y FPS.',
-    accent: 'cyan',
-    badge: 'immersive',
-  },
-  {
-    title: 'Trailers',
-    subtitle: 'Muestra tu juego con capturas, teasers y mecánicas.',
-    accent: 'pink',
-    badge: 'showcase',
-  },
+  { title: 'Juegos 2D', subtitle: 'Plataformas, RPG, puzzles y acción retro.', accent: 'violet', badge: 'pixel art' },
+  { title: 'Juegos 3D', subtitle: 'Mundos inmersivos, shooters, simuladores y FPS.', accent: 'cyan', badge: 'immersive' },
+  { title: 'Trailers', subtitle: 'Muestra tu juego con capturas, teasers y mecánicas.', accent: 'pink', badge: 'showcase' },
 ];
 
 const aiSteps = [
@@ -100,6 +104,17 @@ const comments = [
   },
 ];
 
+function getCurrentPath() {
+  const path = window.location.pathname;
+  return path && path !== '/' ? path : '/';
+}
+
+function normalizePath(path) {
+  if (!path || path === '') return '/';
+  const value = path.startsWith('/') ? path : `/${path}`;
+  return value;
+}
+
 function App() {
   const [user, setUser] = useState(() => {
     try {
@@ -119,8 +134,7 @@ function App() {
     }
   });
 
-  const [view, setView] = useState('home');
-  const [selectedGameId, setSelectedGameId] = useState(defaultGames[0].id);
+  const [route, setRoute] = useState(getCurrentPath);
   const [mode, setMode] = useState('login');
   const [authError, setAuthError] = useState('');
   const [loginForm, setLoginForm] = useState({ username: '', email: '', password: '' });
@@ -128,33 +142,68 @@ function App() {
     title: '',
     genre: 'Juegos 2D',
     description: '',
+    imageUrl: '',
   });
   const [editingId, setEditingId] = useState(null);
   const [query, setQuery] = useState('');
+  const [commentDraft, setCommentDraft] = useState({});
 
   useEffect(() => {
-    if (!user) return;
-    localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+    localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user || null));
   }, [user]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.games, JSON.stringify(games));
   }, [games]);
 
-  const selectedGame = useMemo(
-    () => games.find((game) => game.id === selectedGameId) ?? games[0],
-    [games, selectedGameId],
-  );
+  useEffect(() => {
+    const onPopState = () => setRoute(getCurrentPath());
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  const navigate = (nextPath) => {
+    const normalized = normalizePath(nextPath);
+    if (window.location.pathname !== normalized) {
+      window.history.pushState({}, '', normalized);
+    }
+    setRoute(normalized);
+  };
+
+  const currentPath = route || '/';
+
+  const routeInfo = useMemo(() => {
+    if (currentPath === '/auth') return { type: 'auth' };
+    if (currentPath === '/crear') return { type: 'create' };
+    if (currentPath === '/ejemplos') return { type: 'examples' };
+    if (currentPath === '/perfil') return { type: 'profile' };
+    if (currentPath.startsWith('/juego/')) {
+      const id = Number(currentPath.split('/juego/')[1]);
+      return { type: 'game', id };
+    }
+    return { type: 'home' };
+  }, [currentPath]);
+
+  const selectedGame = useMemo(() => {
+    if (routeInfo.type !== 'game') return null;
+    return games.find((game) => game.id === routeInfo.id) || null;
+  }, [games, routeInfo]);
 
   const filteredGames = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return games;
     return games.filter((game) =>
-      `${game.name} ${game.description} ${game.type} ${game.creator}`
-        .toLowerCase()
-        .includes(term),
+      `${game.name} ${game.description} ${game.type} ${game.creator}`.toLowerCase().includes(term),
     );
   }, [games, query]);
+
+  const protectedRoutes = ['/crear', '/perfil'];
+
+  useEffect(() => {
+    if (!user && protectedRoutes.includes(currentPath)) {
+      navigate('/auth');
+    }
+  }, [currentPath, user]);
 
   const handleAuthChange = (event) => {
     const { name, value } = event.target;
@@ -179,20 +228,18 @@ function App() {
       return;
     }
 
-    const nextUser = {
+    setUser({
       username: mode === 'register' ? username : email.split('@')[0],
       email,
-    };
-
-    setUser(nextUser);
-    setView('home');
+    });
+    navigate('/');
   };
 
   const handleLogout = () => {
     setUser(null);
-    setView('home');
     setAuthError('');
     setLoginForm({ username: '', email: '', password: '' });
+    navigate('/');
   };
 
   const handleDraftChange = (event) => {
@@ -200,9 +247,15 @@ function App() {
     setDraft((prev) => ({ ...prev, [name]: value }));
   };
 
-  const openGameDetail = (gameId) => {
-    setSelectedGameId(gameId);
-    setView('game');
+  const handleUploadImage = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setDraft((prev) => ({ ...prev, imageUrl: String(reader.result) }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleCreateOrUpdate = (event) => {
@@ -218,12 +271,12 @@ function App() {
                 name: draft.title.trim(),
                 type: draft.genre,
                 description: draft.description.trim(),
+                imageUrl: draft.imageUrl || game.imageUrl,
                 tags: [draft.genre.toLowerCase(), 'editado', 'comunidad'],
               }
             : game,
         ),
       );
-      setSelectedGameId(editingId);
     } else {
       const nextGame = {
         id: Date.now(),
@@ -236,15 +289,20 @@ function App() {
         description: draft.description.trim(),
         tags: [draft.genre.toLowerCase(), 'nuevo', 'comunidad'],
         players: '0',
+        likes: 0,
+        likedBy: [],
+        imageUrl: draft.imageUrl || 'https://images.unsplash.com/photo-1526379095098-d400fd0bf935?auto=format&fit=crop&w=1200&q=80',
+        comments: [],
       };
 
       setGames((prev) => [nextGame, ...prev]);
-      setSelectedGameId(nextGame.id);
+      navigate(`/juego/${nextGame.id}`);
     }
 
-    setDraft({ title: '', genre: 'Juegos 2D', description: '' });
+    setDraft({ title: '', genre: 'Juegos 2D', description: '', imageUrl: '' });
     setEditingId(null);
-    setView('game');
+    if (!editingId) return;
+    navigate('/ejemplos');
   };
 
   const startEditGame = (game) => {
@@ -253,20 +311,65 @@ function App() {
       title: game.name,
       genre: game.type,
       description: game.description,
+      imageUrl: game.imageUrl || '',
     });
-    setView('create');
+    navigate('/crear');
   };
 
   const deleteGame = (gameId) => {
     if (!window.confirm('¿Eliminar este juego?')) return;
-
     setGames((prev) => prev.filter((game) => game.id !== gameId));
+    navigate('/ejemplos');
+  };
 
-    if (selectedGameId === gameId) {
-      setSelectedGameId(games[0]?.id ?? null);
+  const toggleLike = (gameId) => {
+    if (!user) {
+      navigate('/auth');
+      return;
     }
 
-    setView('examples');
+    setGames((prev) =>
+      prev.map((game) => {
+        if (game.id !== gameId) return game;
+
+        const alreadyLiked = (game.likedBy || []).includes(user.email);
+        const nextLikedBy = alreadyLiked
+          ? (game.likedBy || []).filter((email) => email !== user.email)
+          : [...(game.likedBy || []), user.email];
+
+        return {
+          ...game,
+          likedBy: nextLikedBy,
+          likes: nextLikedBy.length,
+        };
+      }),
+    );
+  };
+
+  const handleAddComment = (gameId) => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+
+    const value = (commentDraft[gameId] || '').trim();
+    if (!value) return;
+
+    setGames((prev) =>
+      prev.map((game) =>
+        game.id === gameId
+          ? {
+              ...game,
+              comments: [
+                ...(game.comments || []),
+                { id: Date.now(), user: user.username, text: value },
+              ],
+            }
+          : game,
+      ),
+    );
+
+    setCommentDraft((prev) => ({ ...prev, [gameId]: '' }));
   };
 
   const renderAuth = () => (
@@ -279,9 +382,7 @@ function App() {
 
         <h1>{mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</h1>
         <p className="auth-subtitle">
-          {mode === 'login'
-            ? 'Bienvenido de vuelta a la comunidad'
-            : 'Únete para crear, publicar y descubrir grandes ideas'}
+          {mode === 'login' ? 'Bienvenido de vuelta a la comunidad' : 'Únete para crear, publicar y descubrir grandes ideas'}
         </p>
 
         <form className="auth-form" onSubmit={handleAuthSubmit}>
@@ -346,24 +447,26 @@ function App() {
         </div>
 
         <nav className="menu">
-          <button className="menu-btn" onClick={() => setView('home')}>Descubre</button>
-          <button className="menu-btn" onClick={() => setView('create')}>Crear</button>
-          <button className="menu-btn" onClick={() => setView('home')}>IA</button>
-          <button className="menu-btn" onClick={() => setView('examples')}>Comunidad</button>
+          <button className="menu-btn" onClick={() => navigate('/')}>Descubre</button>
+          <button className="menu-btn" onClick={() => navigate('/crear')}>Crear</button>
+          <button className="menu-btn" onClick={() => navigate('/')}>IA</button>
+          <button className="menu-btn" onClick={() => navigate('/ejemplos')}>Comunidad</button>
         </nav>
 
         <div className="nav-actions">
           {user ? (
             <>
-              <span className="user-pill">👤 {user.username}</span>
+              <button className="menu-btn user-pill" onClick={() => navigate('/perfil')}>
+                👤 {user.username}
+              </button>
               <button className="ghost-btn" onClick={handleLogout}>Salir</button>
             </>
           ) : (
-            <button className="ghost-btn" onClick={() => setView('auth')}>
+            <button className="ghost-btn" onClick={() => navigate('/auth')}>
               Entrar
             </button>
           )}
-          <button className="primary-btn" onClick={() => setView('create')}>
+          <button className="primary-btn" onClick={() => navigate('/crear')}>
             Crear juego
           </button>
         </div>
@@ -380,10 +483,10 @@ function App() {
             </p>
 
             <div className="cta-row">
-              <button className="primary-btn large" onClick={() => setView('create')}>
+              <button className="primary-btn large" onClick={() => navigate('/crear')}>
                 Empezar ahora
               </button>
-              <button className="ghost-btn large" onClick={() => setView('examples')}>
+              <button className="ghost-btn large" onClick={() => navigate('/ejemplos')}>
                 Ver ejemplos
               </button>
             </div>
@@ -401,7 +504,15 @@ function App() {
                 <span className="live-dot" />
                 <span>Live dev</span>
               </div>
-              <div className="project-preview preview-one" />
+              <div
+                className="project-preview preview-one"
+                style={{
+                  backgroundImage:
+                    'linear-gradient(135deg, rgba(94,230,255,0.2), rgba(140,123,255,0.18)), url(https://images.unsplash.com/photo-1526379095098-d400fd0bf935?auto=format&fit=crop&w=1200&q=80)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                }}
+              />
               <div className="project-meta">
                 <div>
                   <strong>Project Echo</strong>
@@ -436,7 +547,7 @@ function App() {
                 <span className="category-badge">{cat.badge}</span>
                 <h3>{cat.title}</h3>
                 <p>{cat.subtitle}</p>
-                <button onClick={() => setView('examples')}>Ver más</button>
+                <button onClick={() => navigate('/ejemplos')}>Ver más</button>
               </article>
             ))}
           </div>
@@ -448,19 +559,22 @@ function App() {
               <span className="eyebrow">Proyectos destacados</span>
               <h2>Juegos que están rompiendo el mercado</h2>
             </div>
-            <button className="ghost-btn" onClick={() => setView('examples')}>
+            <button className="ghost-btn" onClick={() => navigate('/ejemplos')}>
               Explorar comunidad
             </button>
           </div>
 
           <div className="featured-grid">
             {games.map((game) => (
-              <article
-                key={game.id}
-                className={`game-card ${game.accent}`}
-                onClick={() => openGameDetail(game.id)}
-              >
-                <div className="game-visual" />
+              <article key={game.id} className={`game-card ${game.accent}`} onClick={() => navigate(`/juego/${game.id}`)}>
+                <div
+                  className="game-visual"
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, rgba(94,230,255,0.12), rgba(140,123,255,0.15)), url(${game.imageUrl})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }}
+                />
                 <div className="game-body">
                   <div className="game-topline">
                     <span>{game.type}</span>
@@ -551,7 +665,7 @@ function App() {
             <span className="eyebrow">Tu creatividad merece ser vista</span>
             <h2>Crear, publicar y crecer nunca fue tan fácil.</h2>
           </div>
-          <button className="primary-btn large" onClick={() => setView('create')}>
+          <button className="primary-btn large" onClick={() => navigate('/crear')}>
             Subir mi juego
           </button>
         </section>
@@ -570,7 +684,7 @@ function App() {
   const renderCreate = () => (
     <div className="page-shell">
       <header className="page-header">
-        <button className="ghost-btn" onClick={() => setView('home')}>
+        <button className="ghost-btn" onClick={() => navigate('/')}>
           ← Volver
         </button>
         <h2>{editingId ? 'Editar juego' : 'Crear juego'}</h2>
@@ -610,8 +724,18 @@ function App() {
           />
         </label>
 
+        <label className="upload-box">
+          <span>Portada del juego</span>
+          <input type="file" accept="image/*" onChange={handleUploadImage} />
+          {draft.imageUrl && (
+            <div className="image-preview">
+              <img src={draft.imageUrl} alt="Preview del juego" />
+            </div>
+          )}
+        </label>
+
         <div className="form-actions">
-          <button type="button" className="ghost-btn" onClick={() => setView('home')}>
+          <button type="button" className="ghost-btn" onClick={() => navigate('/')}>
             Cancelar
           </button>
           <button type="submit" className="primary-btn">
@@ -625,7 +749,7 @@ function App() {
   const renderExamples = () => (
     <div className="page-shell">
       <header className="page-header">
-        <button className="ghost-btn" onClick={() => setView('home')}>
+        <button className="ghost-btn" onClick={() => navigate('/')}>
           ← Volver
         </button>
         <h2>Ejemplos y comunidad</h2>
@@ -642,12 +766,15 @@ function App() {
 
       <div className="example-grid">
         {filteredGames.map((game) => (
-          <article
-            key={game.id}
-            className={`example-card ${game.accent}`}
-            onClick={() => openGameDetail(game.id)}
-          >
-            <div className="mini-visual" />
+          <article key={game.id} className={`example-card ${game.accent}`}>
+            <div
+              className="mini-visual"
+              style={{
+                backgroundImage: `linear-gradient(135deg, rgba(94,230,255,0.12), rgba(140,123,255,0.15)), url(${game.imageUrl})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            />
             <div className="example-body">
               <div className="game-topline">
                 <span>{game.type}</span>
@@ -659,6 +786,21 @@ function App() {
                 <span>por {game.creator}</span>
                 <span className="mood">{game.mood}</span>
               </div>
+              <div className="example-actions">
+                <button className="ghost-btn small-btn" onClick={() => navigate(`/juego/${game.id}`)}>
+                  Ver detalle
+                </button>
+                {user && game.creator === user.username && (
+                  <>
+                    <button className="ghost-btn small-btn" onClick={() => startEditGame(game)}>
+                      Editar
+                    </button>
+                    <button className="danger-btn small-btn" onClick={() => deleteGame(game.id)}>
+                      Eliminar
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </article>
         ))}
@@ -666,20 +808,106 @@ function App() {
     </div>
   );
 
-  const renderGameDetail = () => {
-    if (!selectedGame) return null;
+  const renderProfile = () => {
+    const userGames = games.filter(
+      (game) => game.creator === user?.username || game.creator === user?.email?.split('@')[0],
+    );
+    const totalLikes = userGames.reduce((sum, game) => sum + (game.likes || 0), 0);
 
     return (
       <div className="page-shell">
         <header className="page-header">
-          <button className="ghost-btn" onClick={() => setView('examples')}>
+          <button className="ghost-btn" onClick={() => navigate('/')}>
+            ← Volver
+          </button>
+          <h2>Mi perfil</h2>
+        </header>
+
+        <div className="profile-card">
+          <div className="profile-header">
+            <div className="avatar-large">{user?.username?.charAt(0)?.toUpperCase() || 'U'}</div>
+            <div>
+              <h3>{user?.username}</h3>
+              <p>{user?.email}</p>
+            </div>
+          </div>
+
+          <div className="profile-stats">
+            <div>
+              <strong>{userGames.length}</strong>
+              <span>juegos</span>
+            </div>
+            <div>
+              <strong>{totalLikes}</strong>
+              <span>likes</span>
+            </div>
+            <div>
+              <strong>{games.reduce((count, game) => count + (game.comments?.length || 0), 0)}</strong>
+              <span>comentarios</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="profile-games">
+          <h3>Mis publicaciones</h3>
+          {userGames.length === 0 ? (
+            <p className="empty-state">Todavía no has publicado ningún juego.</p>
+          ) : (
+            <div className="profile-list">
+              {userGames.map((game) => (
+                <div key={game.id} className="profile-game-item">
+                  <div
+                    className="profile-thumb"
+                    style={{
+                      backgroundImage: `linear-gradient(135deg, rgba(94,230,255,0.08), rgba(140,123,255,0.12)), url(${game.imageUrl})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  />
+                  <div>
+                    <strong>{game.name}</strong>
+                    <p>{game.type}</p>
+                    <div className="tiny-actions">
+                      <button className="ghost-btn small-btn" onClick={() => navigate(`/juego/${game.id}`)}>
+                        Ver
+                      </button>
+                      <button className="ghost-btn small-btn" onClick={() => startEditGame(game)}>
+                        Editar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderGameDetail = () => {
+    if (!selectedGame) return null;
+
+    const currentUserLiked = user ? (selectedGame.likedBy || []).includes(user.email) : false;
+
+    return (
+      <div className="page-shell">
+        <header className="page-header">
+          <button className="ghost-btn" onClick={() => navigate('/ejemplos')}>
             ← Volver
           </button>
           <h2>{selectedGame.name}</h2>
         </header>
 
         <div className="detail-layout">
-          <div className="detail-visual" />
+          <div
+            className="detail-visual"
+            style={{
+              backgroundImage: `linear-gradient(135deg, rgba(94,230,255,0.12), rgba(140,123,255,0.15)), url(${selectedGame.imageUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+            }}
+          />
 
           <div className="detail-copy">
             <div className="game-topline">
@@ -691,7 +919,7 @@ function App() {
             <p>{selectedGame.description}</p>
 
             <div className="tag-list">
-              {selectedGame.tags.map((tag) => (
+              {(selectedGame.tags || []).map((tag) => (
                 <span key={tag} className="tag-item">
                   {tag}
                 </span>
@@ -707,22 +935,62 @@ function App() {
                 <strong>Jugadores</strong>
                 <span>{selectedGame.players}</span>
               </div>
+              <div>
+                <strong>Likes</strong>
+                <span>{selectedGame.likes || 0}</span>
+              </div>
             </div>
 
             <div className="detail-actions">
-              <button className="primary-btn" onClick={() => setView('create')}>
+              <button className="primary-btn" onClick={() => navigate('/crear')}>
                 Crear tu versión
               </button>
-              {user && selectedGame.creator === user.username && (
-                <>
-                  <button className="ghost-btn" onClick={() => startEditGame(selectedGame)}>
-                    Editar
-                  </button>
-                  <button className="danger-btn" onClick={() => deleteGame(selectedGame.id)}>
-                    Eliminar
-                  </button>
-                </>
-              )}
+              <button className={`ghost-btn ${currentUserLiked ? 'liked' : ''}`} onClick={() => toggleLike(selectedGame.id)}>
+                {currentUserLiked ? '❤ Te gusta' : '♡ Me gusta'}
+              </button>
+            </div>
+
+            {user && selectedGame.creator === user.username && (
+              <div className="owner-actions">
+                <button className="ghost-btn small-btn" onClick={() => startEditGame(selectedGame)}>
+                  Editar
+                </button>
+                <button className="danger-btn small-btn" onClick={() => deleteGame(selectedGame.id)}>
+                  Eliminar
+                </button>
+              </div>
+            )}
+
+            <div className="comments-box">
+              <h4>Comentarios</h4>
+              <div className="comments-list">
+                {(selectedGame.comments || []).length === 0 ? (
+                  <p className="empty-state">Sé el primero en comentar.</p>
+                ) : (
+                  (selectedGame.comments || []).map((comment) => (
+                    <div key={comment.id} className="comment-inline">
+                      <strong>{comment.user}</strong>
+                      <p>{comment.text}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="comment-form">
+                <textarea
+                  value={commentDraft[selectedGame.id] || ''}
+                  onChange={(event) =>
+                    setCommentDraft((prev) => ({
+                      ...prev,
+                      [selectedGame.id]: event.target.value,
+                    }))
+                  }
+                  placeholder="Escribe un comentario..."
+                />
+                <button className="primary-btn" onClick={() => handleAddComment(selectedGame.id)}>
+                  Enviar
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -731,14 +999,11 @@ function App() {
   };
 
   const renderCurrentView = () => {
-    if (!user && view !== 'auth') {
-      return renderAuth();
-    }
-
-    if (view === 'auth') return renderAuth();
-    if (view === 'create') return renderCreate();
-    if (view === 'examples') return renderExamples();
-    if (view === 'game') return renderGameDetail();
+    if (routeInfo.type === 'auth') return renderAuth();
+    if (routeInfo.type === 'create') return renderCreate();
+    if (routeInfo.type === 'examples') return renderExamples();
+    if (routeInfo.type === 'profile') return user ? renderProfile() : renderAuth();
+    if (routeInfo.type === 'game') return renderGameDetail();
     return renderHome();
   };
 
