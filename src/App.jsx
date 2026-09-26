@@ -1,10 +1,15 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
-const initialGames = [
+const STORAGE_KEYS = {
+  user: 'fgc-user',
+  games: 'fgc-games',
+};
+
+const defaultGames = [
   {
     id: 1,
     name: 'Neon Forge',
-    type: '2D / acción',
+    type: 'Juegos 2D',
     creator: 'AstraNova',
     mood: 'cyberpunk',
     progress: '82%',
@@ -17,7 +22,7 @@ const initialGames = [
   {
     id: 2,
     name: 'Skybound Echo',
-    type: '3D / aventura',
+    type: 'Juegos 3D',
     creator: 'PixelWarden',
     mood: 'fantasía',
     progress: '64%',
@@ -30,7 +35,7 @@ const initialGames = [
   {
     id: 3,
     name: 'Vault Runner',
-    type: '2D / supervivencia',
+    type: 'Juegos 2D',
     creator: 'MikaAr',
     mood: 'sci-fi',
     progress: '92%',
@@ -96,50 +101,241 @@ const comments = [
 ];
 
 function App() {
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.user);
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [games, setGames] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.games);
+      return saved ? JSON.parse(saved) : defaultGames;
+    } catch {
+      return defaultGames;
+    }
+  });
+
   const [view, setView] = useState('home');
-  const [selectedGame, setSelectedGame] = useState(initialGames[0]);
-  const [games, setGames] = useState(initialGames);
-  const [form, setForm] = useState({
+  const [selectedGameId, setSelectedGameId] = useState(defaultGames[0].id);
+  const [mode, setMode] = useState('login');
+  const [authError, setAuthError] = useState('');
+  const [loginForm, setLoginForm] = useState({ username: '', email: '', password: '' });
+  const [draft, setDraft] = useState({
     title: '',
     genre: 'Juegos 2D',
     description: '',
   });
+  const [editingId, setEditingId] = useState(null);
+  const [query, setQuery] = useState('');
 
-  const homeStats = useMemo(() => stats, []);
+  useEffect(() => {
+    if (!user) return;
+    localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
+  }, [user]);
 
-  const openGame = (game) => {
-    setSelectedGame(game);
-    setView('game');
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.games, JSON.stringify(games));
+  }, [games]);
+
+  const selectedGame = useMemo(
+    () => games.find((game) => game.id === selectedGameId) ?? games[0],
+    [games, selectedGameId],
+  );
+
+  const filteredGames = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    if (!term) return games;
+    return games.filter((game) =>
+      `${game.name} ${game.description} ${game.type} ${game.creator}`
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [games, query]);
+
+  const handleAuthChange = (event) => {
+    const { name, value } = event.target;
+    setLoginForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  const handleAuthSubmit = (event) => {
+    event.preventDefault();
+    setAuthError('');
 
-  const handleCreateSubmit = (e) => {
-    e.preventDefault();
+    const email = loginForm.email.trim();
+    const password = loginForm.password.trim();
+    const username = loginForm.username.trim();
 
-    if (!form.title.trim() || !form.description.trim()) return;
+    if (!email || !password || (mode === 'register' && !username)) {
+      setAuthError('Completa todos los campos.');
+      return;
+    }
 
-    const nextGame = {
-      id: Date.now(),
-      name: form.title.trim(),
-      type: form.genre,
-      creator: 'Tú',
-      mood: 'custom',
-      progress: '12%',
-      accent: 'neon',
-      description: form.description.trim(),
-      tags: [form.genre.toLowerCase(), 'nuevo', 'comunidad'],
-      players: '0',
+    if (mode === 'register' && password.length < 6) {
+      setAuthError('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    const nextUser = {
+      username: mode === 'register' ? username : email.split('@')[0],
+      email,
     };
 
-    setGames((prev) => [nextGame, ...prev]);
-    setSelectedGame(nextGame);
-    setForm({ title: '', genre: 'Juegos 2D', description: '' });
+    setUser(nextUser);
+    setView('home');
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setView('home');
+    setAuthError('');
+    setLoginForm({ username: '', email: '', password: '' });
+  };
+
+  const handleDraftChange = (event) => {
+    const { name, value } = event.target;
+    setDraft((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const openGameDetail = (gameId) => {
+    setSelectedGameId(gameId);
     setView('game');
   };
+
+  const handleCreateOrUpdate = (event) => {
+    event.preventDefault();
+    if (!draft.title.trim() || !draft.description.trim()) return;
+
+    if (editingId) {
+      setGames((prev) =>
+        prev.map((game) =>
+          game.id === editingId
+            ? {
+                ...game,
+                name: draft.title.trim(),
+                type: draft.genre,
+                description: draft.description.trim(),
+                tags: [draft.genre.toLowerCase(), 'editado', 'comunidad'],
+              }
+            : game,
+        ),
+      );
+      setSelectedGameId(editingId);
+    } else {
+      const nextGame = {
+        id: Date.now(),
+        name: draft.title.trim(),
+        type: draft.genre,
+        creator: user?.username || 'Tú',
+        mood: 'custom',
+        progress: '12%',
+        accent: 'neon',
+        description: draft.description.trim(),
+        tags: [draft.genre.toLowerCase(), 'nuevo', 'comunidad'],
+        players: '0',
+      };
+
+      setGames((prev) => [nextGame, ...prev]);
+      setSelectedGameId(nextGame.id);
+    }
+
+    setDraft({ title: '', genre: 'Juegos 2D', description: '' });
+    setEditingId(null);
+    setView('game');
+  };
+
+  const startEditGame = (game) => {
+    setEditingId(game.id);
+    setDraft({
+      title: game.name,
+      genre: game.type,
+      description: game.description,
+    });
+    setView('create');
+  };
+
+  const deleteGame = (gameId) => {
+    if (!window.confirm('¿Eliminar este juego?')) return;
+
+    setGames((prev) => prev.filter((game) => game.id !== gameId));
+
+    if (selectedGameId === gameId) {
+      setSelectedGameId(games[0]?.id ?? null);
+    }
+
+    setView('examples');
+  };
+
+  const renderAuth = () => (
+    <div className="auth-shell">
+      <div className="auth-card">
+        <div className="brand-wrap">
+          <div className="brand-mark">F</div>
+          <div className="brand-text">FansGamesCreate</div>
+        </div>
+
+        <h1>{mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}</h1>
+        <p className="auth-subtitle">
+          {mode === 'login'
+            ? 'Bienvenido de vuelta a la comunidad'
+            : 'Únete para crear, publicar y descubrir grandes ideas'}
+        </p>
+
+        <form className="auth-form" onSubmit={handleAuthSubmit}>
+          {mode === 'register' && (
+            <label>
+              <span>Nombre de usuario</span>
+              <input
+                type="text"
+                name="username"
+                value={loginForm.username}
+                onChange={handleAuthChange}
+                placeholder="tu_usuario"
+              />
+            </label>
+          )}
+
+          <label>
+            <span>Correo electrónico</span>
+            <input
+              type="email"
+              name="email"
+              value={loginForm.email}
+              onChange={handleAuthChange}
+              placeholder="tu@correo.com"
+            />
+          </label>
+
+          <label>
+            <span>Contraseña</span>
+            <input
+              type="password"
+              name="password"
+              value={loginForm.password}
+              onChange={handleAuthChange}
+              placeholder="••••••••"
+            />
+          </label>
+
+          {authError && <div className="error-box">{authError}</div>}
+
+          <button type="submit" className="primary-btn full-width">
+            {mode === 'login' ? 'Entrar' : 'Registrarme'}
+          </button>
+        </form>
+
+        <div className="switch-link">
+          {mode === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
+          <button type="button" className="text-link" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
+            {mode === 'login' ? 'Regístrate' : 'Inicia sesión'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderHome = () => (
     <>
@@ -150,24 +346,23 @@ function App() {
         </div>
 
         <nav className="menu">
-          <button className="menu-btn" onClick={() => setView('home')}>
-            Descubre
-          </button>
-          <button className="menu-btn" onClick={() => setView('create')}>
-            Crear
-          </button>
-          <button className="menu-btn" onClick={() => setView('home')}>
-            IA
-          </button>
-          <button className="menu-btn" onClick={() => setView('examples')}>
-            Comunidad
-          </button>
+          <button className="menu-btn" onClick={() => setView('home')}>Descubre</button>
+          <button className="menu-btn" onClick={() => setView('create')}>Crear</button>
+          <button className="menu-btn" onClick={() => setView('home')}>IA</button>
+          <button className="menu-btn" onClick={() => setView('examples')}>Comunidad</button>
         </nav>
 
         <div className="nav-actions">
-          <button className="ghost-btn" onClick={() => setView('home')}>
-            Entrar
-          </button>
+          {user ? (
+            <>
+              <span className="user-pill">👤 {user.username}</span>
+              <button className="ghost-btn" onClick={handleLogout}>Salir</button>
+            </>
+          ) : (
+            <button className="ghost-btn" onClick={() => setView('auth')}>
+              Entrar
+            </button>
+          )}
           <button className="primary-btn" onClick={() => setView('create')}>
             Crear juego
           </button>
@@ -221,7 +416,7 @@ function App() {
         </section>
 
         <section className="stats-bar">
-          {homeStats.map((stat) => (
+          {stats.map((stat) => (
             <div key={stat.label} className="stat-item">
               <strong>{stat.value}</strong>
               <span>{stat.label}</span>
@@ -229,7 +424,7 @@ function App() {
           ))}
         </section>
 
-        <section id="descubre" className="section-block">
+        <section className="section-block">
           <div className="section-heading">
             <span className="eyebrow">Explora</span>
             <h2>Todo lo que necesitas para lanzar tu siguiente juego</h2>
@@ -247,7 +442,7 @@ function App() {
           </div>
         </section>
 
-        <section id="crear" className="section-block featured-block">
+        <section className="section-block featured-block">
           <div className="section-heading inline-heading">
             <div>
               <span className="eyebrow">Proyectos destacados</span>
@@ -263,7 +458,7 @@ function App() {
               <article
                 key={game.id}
                 className={`game-card ${game.accent}`}
-                onClick={() => openGame(game)}
+                onClick={() => openGameDetail(game.id)}
               >
                 <div className="game-visual" />
                 <div className="game-body">
@@ -282,7 +477,7 @@ function App() {
           </div>
         </section>
 
-        <section id="ia" className="section-block ai-section">
+        <section className="section-block ai-section">
           <div className="ai-copy">
             <span className="eyebrow">Mentor IA</span>
             <h2>Tu asistente creativo disponible en todo momento</h2>
@@ -329,7 +524,7 @@ function App() {
           </div>
         </section>
 
-        <section id="comunidad" className="section-block community-block">
+        <section className="section-block community-block">
           <div className="section-heading">
             <span className="eyebrow">Comunidad</span>
             <h2>Comentarios, opinión y apoyo real</h2>
@@ -378,25 +573,25 @@ function App() {
         <button className="ghost-btn" onClick={() => setView('home')}>
           ← Volver
         </button>
-        <h2>Crear juego</h2>
+        <h2>{editingId ? 'Editar juego' : 'Crear juego'}</h2>
       </header>
 
-      <form className="create-form" onSubmit={handleCreateSubmit}>
+      <form className="create-form" onSubmit={handleCreateOrUpdate}>
         <div className="form-grid">
           <label>
             <span>Nombre del juego</span>
             <input
               type="text"
               name="title"
-              value={form.title}
-              onChange={handleInputChange}
+              value={draft.title}
+              onChange={handleDraftChange}
               placeholder="Ej. Sky Raiders"
             />
           </label>
 
           <label>
             <span>Tipo</span>
-            <select name="genre" value={form.genre} onChange={handleInputChange}>
+            <select name="genre" value={draft.genre} onChange={handleDraftChange}>
               <option>Juegos 2D</option>
               <option>Juegos 3D</option>
               <option>Trailers</option>
@@ -408,9 +603,9 @@ function App() {
           <span>Descripción</span>
           <textarea
             name="description"
-            value={form.description}
-            onChange={handleInputChange}
             rows="6"
+            value={draft.description}
+            onChange={handleDraftChange}
             placeholder="Describe tu idea, mecánicas, estilo visual y objetivo del juego..."
           />
         </label>
@@ -420,7 +615,7 @@ function App() {
             Cancelar
           </button>
           <button type="submit" className="primary-btn">
-            Publicar juego
+            {editingId ? 'Guardar cambios' : 'Publicar juego'}
           </button>
         </div>
       </form>
@@ -436,12 +631,21 @@ function App() {
         <h2>Ejemplos y comunidad</h2>
       </header>
 
+      <div className="search-box">
+        <input
+          type="text"
+          value={query}
+          placeholder="Buscar juegos, géneros, creadores..."
+          onChange={(event) => setQuery(event.target.value)}
+        />
+      </div>
+
       <div className="example-grid">
-        {games.map((game) => (
+        {filteredGames.map((game) => (
           <article
             key={game.id}
             className={`example-card ${game.accent}`}
-            onClick={() => openGame(game)}
+            onClick={() => openGameDetail(game.id)}
           >
             <div className="mini-visual" />
             <div className="example-body">
@@ -462,62 +666,83 @@ function App() {
     </div>
   );
 
-  const renderGameDetail = () => (
-    <div className="page-shell">
-      <header className="page-header">
-        <button className="ghost-btn" onClick={() => setView('examples')}>
-          ← Volver
-        </button>
-        <h2>{selectedGame.name}</h2>
-      </header>
+  const renderGameDetail = () => {
+    if (!selectedGame) return null;
 
-      <div className="detail-layout">
-        <div className="detail-visual" />
-
-        <div className="detail-copy">
-          <div className="game-topline">
-            <span>{selectedGame.type}</span>
-            <span>{selectedGame.progress}</span>
-          </div>
-
-          <h3>{selectedGame.name}</h3>
-          <p>{selectedGame.description}</p>
-
-          <div className="tag-list">
-            {selectedGame.tags.map((tag) => (
-              <span key={tag} className="tag-item">
-                {tag}
-              </span>
-            ))}
-          </div>
-
-          <div className="detail-meta">
-            <div>
-              <strong>Creado por</strong>
-              <span>{selectedGame.creator}</span>
-            </div>
-            <div>
-              <strong>Jugadores</strong>
-              <span>{selectedGame.players}</span>
-            </div>
-          </div>
-
-          <button className="primary-btn" onClick={() => setView('create')}>
-            Crear tu versión
+    return (
+      <div className="page-shell">
+        <header className="page-header">
+          <button className="ghost-btn" onClick={() => setView('examples')}>
+            ← Volver
           </button>
+          <h2>{selectedGame.name}</h2>
+        </header>
+
+        <div className="detail-layout">
+          <div className="detail-visual" />
+
+          <div className="detail-copy">
+            <div className="game-topline">
+              <span>{selectedGame.type}</span>
+              <span>{selectedGame.progress}</span>
+            </div>
+
+            <h3>{selectedGame.name}</h3>
+            <p>{selectedGame.description}</p>
+
+            <div className="tag-list">
+              {selectedGame.tags.map((tag) => (
+                <span key={tag} className="tag-item">
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            <div className="detail-meta">
+              <div>
+                <strong>Creado por</strong>
+                <span>{selectedGame.creator}</span>
+              </div>
+              <div>
+                <strong>Jugadores</strong>
+                <span>{selectedGame.players}</span>
+              </div>
+            </div>
+
+            <div className="detail-actions">
+              <button className="primary-btn" onClick={() => setView('create')}>
+                Crear tu versión
+              </button>
+              {user && selectedGame.creator === user.username && (
+                <>
+                  <button className="ghost-btn" onClick={() => startEditGame(selectedGame)}>
+                    Editar
+                  </button>
+                  <button className="danger-btn" onClick={() => deleteGame(selectedGame.id)}>
+                    Eliminar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderCurrentView = () => {
+    if (!user && view !== 'auth') {
+      return renderAuth();
+    }
+
+    if (view === 'auth') return renderAuth();
     if (view === 'create') return renderCreate();
     if (view === 'examples') return renderExamples();
     if (view === 'game') return renderGameDetail();
     return renderHome();
   };
 
-  return <div className="app-shell">{renderCurrentView()}</div>;
+  return <>{renderCurrentView()}</>;
 }
 
 export default App;
