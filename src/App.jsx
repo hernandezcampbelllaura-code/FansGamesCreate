@@ -1,3 +1,47 @@
+import React, { useMemo, useState } from 'react';
+
+const initialGames = [
+  {
+    id: 1,
+    name: 'Neon Forge',
+    type: '2D / acción',
+    creator: 'AstraNova',
+    mood: 'cyberpunk',
+    progress: '82%',
+    accent: 'neon',
+    description:
+      'Un juego de plataformas con combates rápidos, retos de precisión y un mundo futurista lleno de secretos.',
+    tags: ['acción', 'pixel-art', 'exploración'],
+    players: '4.2K',
+  },
+  {
+    id: 2,
+    name: 'Skybound Echo',
+    type: '3D / aventura',
+    creator: 'PixelWarden',
+    mood: 'fantasía',
+    progress: '64%',
+    accent: 'ocean',
+    description:
+      'Una aventura emocional con cielos abiertos, criaturas legendarias y decisiones que cambian el mundo.',
+    tags: ['aventura', 'mundo abierto', 'historia'],
+    players: '3.5K',
+  },
+  {
+    id: 3,
+    name: 'Vault Runner',
+    type: '2D / supervivencia',
+    creator: 'MikaAr',
+    mood: 'sci-fi',
+    progress: '92%',
+    accent: 'sun',
+    description:
+      'Sobrevive en un futuro postapocalíptico con recursos limitados, peligro constante y decisiones críticas.',
+    tags: ['supervivencia', 'simulación', 'sci-fi'],
+    players: '6.1K',
+  },
+];
+
 const stats = [
   { value: '32K+', label: 'creadores activos' },
   { value: '7.8K', label: 'juegos publicados' },
@@ -23,33 +67,6 @@ const categories = [
     subtitle: 'Muestra tu juego con capturas, teasers y mecánicas.',
     accent: 'pink',
     badge: 'showcase',
-  },
-];
-
-const featured = [
-  {
-    name: 'Neon Forge',
-    type: '2D / acción',
-    creator: 'AstraNova',
-    mood: 'cyberpunk',
-    progress: '82%',
-    accent: 'neon',
-  },
-  {
-    name: 'Skybound Echo',
-    type: '3D / aventura',
-    creator: 'PixelWarden',
-    mood: 'fantasía',
-    progress: '64%',
-    accent: 'ocean',
-  },
-  {
-    name: 'Vault Runner',
-    type: '2D / supervivencia',
-    creator: 'MikaAr',
-    mood: 'sci-fi',
-    progress: '92%',
-    accent: 'sun',
   },
 ];
 
@@ -79,44 +96,53 @@ const comments = [
 ];
 
 function App() {
-  // Manejadores de eventos para los botones
-  const handleLogin = () => {
-    alert('Redirigiendo a login...');
-    // window.location.href = '/login';
+  const [view, setView] = useState('home');
+  const [selectedGame, setSelectedGame] = useState(initialGames[0]);
+  const [games, setGames] = useState(initialGames);
+  const [form, setForm] = useState({
+    title: '',
+    genre: 'Juegos 2D',
+    description: '',
+  });
+
+  const homeStats = useMemo(() => stats, []);
+
+  const openGame = (game) => {
+    setSelectedGame(game);
+    setView('game');
   };
 
-  const handleCreateGame = () => {
-    alert('Abriendo formulario para crear juego...');
-    // window.location.href = '/create-game';
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleStartNow = () => {
-    alert('¡Bienvenido! Iniciando...');
-    // window.location.href = '/start';
+  const handleCreateSubmit = (e) => {
+    e.preventDefault();
+
+    if (!form.title.trim() || !form.description.trim()) return;
+
+    const nextGame = {
+      id: Date.now(),
+      name: form.title.trim(),
+      type: form.genre,
+      creator: 'Tú',
+      mood: 'custom',
+      progress: '12%',
+      accent: 'neon',
+      description: form.description.trim(),
+      tags: [form.genre.toLowerCase(), 'nuevo', 'comunidad'],
+      players: '0',
+    };
+
+    setGames((prev) => [nextGame, ...prev]);
+    setSelectedGame(nextGame);
+    setForm({ title: '', genre: 'Juegos 2D', description: '' });
+    setView('game');
   };
 
-  const handleViewExamples = () => {
-    alert('Mostrando ejemplos de juegos...');
-    // window.location.href = '/examples';
-  };
-
-  const handleViewMore = (category) => {
-    alert(`Ver más juegos de ${category}`);
-    // window.location.href = `/games/${category}`;
-  };
-
-  const handleExploreCommunity = () => {
-    alert('Explorando la comunidad...');
-    // window.location.href = '/community';
-  };
-
-  const handleUploadGame = () => {
-    alert('Abriendo formulario para subir juego...');
-    // window.location.href = '/upload';
-  };
-
-  return (
-    <div className="app-shell">
+  const renderHome = () => (
+    <>
       <header className="topbar">
         <div className="brand-wrap">
           <div className="brand-mark">F</div>
@@ -124,15 +150,27 @@ function App() {
         </div>
 
         <nav className="menu">
-          <a href="#descubre">Descubre</a>
-          <a href="#crear">Crear</a>
-          <a href="#ia">IA</a>
-          <a href="#comunidad">Comunidad</a>
+          <button className="menu-btn" onClick={() => setView('home')}>
+            Descubre
+          </button>
+          <button className="menu-btn" onClick={() => setView('create')}>
+            Crear
+          </button>
+          <button className="menu-btn" onClick={() => setView('home')}>
+            IA
+          </button>
+          <button className="menu-btn" onClick={() => setView('examples')}>
+            Comunidad
+          </button>
         </nav>
 
         <div className="nav-actions">
-          <button className="ghost-btn" onClick={handleLogin}>Entrar</button>
-          <button className="primary-btn" onClick={handleCreateGame}>Crear juego</button>
+          <button className="ghost-btn" onClick={() => setView('home')}>
+            Entrar
+          </button>
+          <button className="primary-btn" onClick={() => setView('create')}>
+            Crear juego
+          </button>
         </div>
       </header>
 
@@ -147,8 +185,12 @@ function App() {
             </p>
 
             <div className="cta-row">
-              <button className="primary-btn large" onClick={handleStartNow}>Empezar ahora</button>
-              <button className="ghost-btn large" onClick={handleViewExamples}>Ver ejemplos</button>
+              <button className="primary-btn large" onClick={() => setView('create')}>
+                Empezar ahora
+              </button>
+              <button className="ghost-btn large" onClick={() => setView('examples')}>
+                Ver ejemplos
+              </button>
             </div>
 
             <div className="mini-pills">
@@ -164,9 +206,7 @@ function App() {
                 <span className="live-dot" />
                 <span>Live dev</span>
               </div>
-
               <div className="project-preview preview-one" />
-
               <div className="project-meta">
                 <div>
                   <strong>Project Echo</strong>
@@ -175,14 +215,13 @@ function App() {
                 <span className="tag">90%</span>
               </div>
             </div>
-
             <div className="floating-card floating-mini mini-top">IA guía</div>
             <div className="floating-card floating-mini mini-bottom">Community +120</div>
           </div>
         </section>
 
         <section className="stats-bar">
-          {stats.map((stat) => (
+          {homeStats.map((stat) => (
             <div key={stat.label} className="stat-item">
               <strong>{stat.value}</strong>
               <span>{stat.label}</span>
@@ -202,7 +241,7 @@ function App() {
                 <span className="category-badge">{cat.badge}</span>
                 <h3>{cat.title}</h3>
                 <p>{cat.subtitle}</p>
-                <button onClick={() => handleViewMore(cat.title)}>Ver más</button>
+                <button onClick={() => setView('examples')}>Ver más</button>
               </article>
             ))}
           </div>
@@ -214,12 +253,18 @@ function App() {
               <span className="eyebrow">Proyectos destacados</span>
               <h2>Juegos que están rompiendo el mercado</h2>
             </div>
-            <button className="ghost-btn" onClick={handleExploreCommunity}>Explorar comunidad</button>
+            <button className="ghost-btn" onClick={() => setView('examples')}>
+              Explorar comunidad
+            </button>
           </div>
 
           <div className="featured-grid">
-            {featured.map((game) => (
-              <article key={game.name} className={`game-card ${game.accent}`}>
+            {games.map((game) => (
+              <article
+                key={game.id}
+                className={`game-card ${game.accent}`}
+                onClick={() => openGame(game)}
+              >
                 <div className="game-visual" />
                 <div className="game-body">
                   <div className="game-topline">
@@ -262,7 +307,9 @@ function App() {
 
             <div className="prompt-box">
               <span className="prompt-label">Prompt</span>
-              <p>"Quiero una idea de juego de aventura con exploración, historia emotiva y un trailer épico para comunidad gamer."</p>
+              <p>
+                “Quiero una idea de juego de aventura con exploración, historia emotiva y un trailer épico para comunidad gamer.”
+              </p>
             </div>
 
             <div className="suggestion-list">
@@ -298,7 +345,7 @@ function App() {
                     <small>{item.tag}</small>
                   </div>
                 </div>
-                <p>"{item.text}"</p>
+                <p>“{item.text}”</p>
               </article>
             ))}
           </div>
@@ -309,7 +356,9 @@ function App() {
             <span className="eyebrow">Tu creatividad merece ser vista</span>
             <h2>Crear, publicar y crecer nunca fue tan fácil.</h2>
           </div>
-          <button className="primary-btn large" onClick={handleUploadGame}>Subir mi juego</button>
+          <button className="primary-btn large" onClick={() => setView('create')}>
+            Subir mi juego
+          </button>
         </section>
       </main>
 
@@ -320,8 +369,155 @@ function App() {
         </div>
         <p>© 2026 FansGamesCreate. Comunidad creativa para gamers y desarrolladores.</p>
       </footer>
+    </>
+  );
+
+  const renderCreate = () => (
+    <div className="page-shell">
+      <header className="page-header">
+        <button className="ghost-btn" onClick={() => setView('home')}>
+          ← Volver
+        </button>
+        <h2>Crear juego</h2>
+      </header>
+
+      <form className="create-form" onSubmit={handleCreateSubmit}>
+        <div className="form-grid">
+          <label>
+            <span>Nombre del juego</span>
+            <input
+              type="text"
+              name="title"
+              value={form.title}
+              onChange={handleInputChange}
+              placeholder="Ej. Sky Raiders"
+            />
+          </label>
+
+          <label>
+            <span>Tipo</span>
+            <select name="genre" value={form.genre} onChange={handleInputChange}>
+              <option>Juegos 2D</option>
+              <option>Juegos 3D</option>
+              <option>Trailers</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          <span>Descripción</span>
+          <textarea
+            name="description"
+            value={form.description}
+            onChange={handleInputChange}
+            rows="6"
+            placeholder="Describe tu idea, mecánicas, estilo visual y objetivo del juego..."
+          />
+        </label>
+
+        <div className="form-actions">
+          <button type="button" className="ghost-btn" onClick={() => setView('home')}>
+            Cancelar
+          </button>
+          <button type="submit" className="primary-btn">
+            Publicar juego
+          </button>
+        </div>
+      </form>
     </div>
   );
+
+  const renderExamples = () => (
+    <div className="page-shell">
+      <header className="page-header">
+        <button className="ghost-btn" onClick={() => setView('home')}>
+          ← Volver
+        </button>
+        <h2>Ejemplos y comunidad</h2>
+      </header>
+
+      <div className="example-grid">
+        {games.map((game) => (
+          <article
+            key={game.id}
+            className={`example-card ${game.accent}`}
+            onClick={() => openGame(game)}
+          >
+            <div className="mini-visual" />
+            <div className="example-body">
+              <div className="game-topline">
+                <span>{game.type}</span>
+                <span>{game.progress}</span>
+              </div>
+              <h3>{game.name}</h3>
+              <p>{game.description}</p>
+              <div className="creator-row">
+                <span>por {game.creator}</span>
+                <span className="mood">{game.mood}</span>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderGameDetail = () => (
+    <div className="page-shell">
+      <header className="page-header">
+        <button className="ghost-btn" onClick={() => setView('examples')}>
+          ← Volver
+        </button>
+        <h2>{selectedGame.name}</h2>
+      </header>
+
+      <div className="detail-layout">
+        <div className="detail-visual" />
+
+        <div className="detail-copy">
+          <div className="game-topline">
+            <span>{selectedGame.type}</span>
+            <span>{selectedGame.progress}</span>
+          </div>
+
+          <h3>{selectedGame.name}</h3>
+          <p>{selectedGame.description}</p>
+
+          <div className="tag-list">
+            {selectedGame.tags.map((tag) => (
+              <span key={tag} className="tag-item">
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          <div className="detail-meta">
+            <div>
+              <strong>Creado por</strong>
+              <span>{selectedGame.creator}</span>
+            </div>
+            <div>
+              <strong>Jugadores</strong>
+              <span>{selectedGame.players}</span>
+            </div>
+          </div>
+
+          <button className="primary-btn" onClick={() => setView('create')}>
+            Crear tu versión
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCurrentView = () => {
+    if (view === 'create') return renderCreate();
+    if (view === 'examples') return renderExamples();
+    if (view === 'game') return renderGameDetail();
+    return renderHome();
+  };
+
+  return <div className="app-shell">{renderCurrentView()}</div>;
 }
 
 export default App;
